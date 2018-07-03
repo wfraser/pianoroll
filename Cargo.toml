@@ -1,0 +1,7 @@
+[package]
+name = "pianoroll"
+version = "0.1.0"
+authors = ["Bill Fraser <wfraser@codewise.org>"]
+
+[dependencies]
+nom-midi = "0.2.0"

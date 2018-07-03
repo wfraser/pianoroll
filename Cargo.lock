@@ -1,0 +1,23 @@
+[[package]]
+name = "nom"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "nom-midi"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "nom 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "pianoroll"
+version = "0.1.0"
+dependencies = [
+ "nom-midi 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[metadata]
+"checksum nom 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf51a729ecf40266a2368ad335a5fdde43471f545a967109cd62146ecf8b66ff"
+"checksum nom-midi 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "87a22c097a8851511cb5073477566e38c7c8b86aec1055abfb504f4a0a496354"
