@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["Bill Fraser <wfraser@codewise.org>"]
 
 [dependencies]
+pdf-canvas = "0.5.4"
 nom-midi = "0.2.0"

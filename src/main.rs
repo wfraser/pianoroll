@@ -1,3 +1,4 @@
+extern crate pdf_canvas;
 extern crate nom_midi;
 use nom_midi::note::Note;
 
@@ -164,4 +165,36 @@ fn main() {
     durations.sort_by_key(|event| event.timestamp);
     println!("{:#?}", durations);
 
+    let mut pdf = pdf_canvas::Pdf::create("out.pdf")
+        .expect("failed to create PDF");
+
+    const POINTS_PER_INCH: f32 = 72.;
+    const PAGE_WIDTH: f32 = POINTS_PER_INCH * 11.25;
+    const CHANNEL_WIDTH: f32 = POINTS_PER_INCH / 9.;
+    const PAGE_MARGIN: f32 = (PAGE_WIDTH - CHANNEL_WIDTH * 98.) / 2.;
+    const HOLE_WIDTH: f32 = CHANNEL_WIDTH / 2.;
+    const HOLE_MARGIN: f32 = CHANNEL_WIDTH / 4.;
+
+    fn note_rectangle(canvas: &mut pdf_canvas::Canvas, channel: u8, start: f32, height: f32) -> Result<(), std::io::Error> {
+        canvas.rectangle(
+            channel as f32 * CHANNEL_WIDTH + HOLE_MARGIN + PAGE_MARGIN,
+            start,
+            HOLE_WIDTH,
+            height,
+        )
+    }
+
+    pdf.render_page(PAGE_WIDTH, 100. * POINTS_PER_INCH,
+        |canvas| {
+            canvas.set_fill_color(pdf_canvas::graphicsstate::Color::gray(0))?;
+            for i in 0 .. 97 {
+                note_rectangle(canvas, i, i as f32 * 10., HOLE_WIDTH)?;
+            }
+            canvas.fill()?;
+            Ok(())
+        })
+        .expect("failed to render page");
+
+    pdf.finish()
+        .expect("failed to finish PDF");
 }
