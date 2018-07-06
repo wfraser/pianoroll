@@ -2,6 +2,8 @@ extern crate pdf_canvas;
 extern crate nom_midi;
 use nom_midi::note::Note as MidiNote;
 
+use std::path::PathBuf;
+
 /// This represents the raw stream of events from the MIDI file.
 #[derive(Debug)]
 struct NoteEvent {
@@ -197,14 +199,116 @@ fn note_durations(
     finished_notes
 }
 
+#[derive(Debug)]
+struct Configuration {
+    input: PathBuf,
+    output: PathBuf,
+    selectors: Vec<ChannelSelector>,
+    time_divisor: f32,
+}
+
+#[derive(Debug)]
+struct ChannelSelector {
+    midi_track: usize,
+    midi_channel: u8,
+    offset: i8,
+}
+
+fn parse_configuration() -> Option<Configuration> {
+    use std::ffi::OsStr;
+
+    let mut input = None;
+    let mut output = None;
+    let mut selectors = vec![];
+    let mut time_divisor = None;
+
+    let mut skip = 0;
+    let mut args = std::env::args_os().skip(1).peekable();// .collect::<Vec<_>>();
+    while let Some(arg) = args.next() {
+        if skip > 0 {
+            skip -= 1;
+            continue;
+        }
+        if arg == OsStr::new("-o") {
+            let next_arg = args.peek()
+                .unwrap_or_else(|| panic!("-o must be followed by another argument"));
+            output = Some(PathBuf::from(next_arg));
+            skip = 1;
+        } else if input.is_none() {
+            input = Some(PathBuf::from(arg));
+        } else {
+            let arg = arg.to_str().unwrap_or_else(|| panic!("non-utf8 argument {:?}", arg));
+            // channel selector or timediv
+            if arg.starts_with('/') {
+                time_divisor = Some(arg[1..].parse()
+                    .unwrap_or_else(|e| panic!("time divisor parse error: {}", e)));
+            } else {
+                let selector = parse_track_selector(arg)
+                    .unwrap_or_else(|e| panic!("malformed track selector \"{}\": {}", arg, e));
+                selectors.push(selector);
+            }
+        }
+    }
+
+    let input = input?;
+    let output = output.unwrap_or_else(|| input.with_extension("pdf"));
+    let time_divisor = time_divisor.unwrap_or(1.);
+    Some(Configuration {
+        input,
+        output,
+        selectors,
+        time_divisor,
+    })
+}
+
+fn parse_track_selector(arg: &str) -> Result<ChannelSelector, String> {
+    let mut track_parts = arg.splitn(2, ',');
+    let track: usize = track_parts.next()
+        .ok_or_else(|| "expected a ','".to_owned())?
+        .parse()
+        .map_err(|e| format!("bad track number: {}", e))?;
+    let channel_rest = track_parts.next()
+        .ok_or_else(|| "expected a ','".to_owned())?;
+    let (channel, offset): (u8, i8) = match channel_rest.find(|c| c == '+' || c == '-') {
+        Some(plusminus_pos) => {
+            let (channel_str, offset_str) = channel_rest.split_at(plusminus_pos);
+            let channel: u8 = channel_str.parse()
+                .map_err(|e| format!("bad channel number: {}", e))?;
+            let offset: i8 = offset_str.parse()
+                .map_err(|e| format!("bad offset number: {}", e))?;
+            (channel, offset)
+        }
+        None => {
+            let channel: u8 = channel_rest.parse()
+                .map_err(|e| format!("bad channel number: {}", e))?;
+            (channel, 0)
+        }
+    };
+    Ok(ChannelSelector {
+        midi_track: track,
+        midi_channel: channel,
+        offset,
+    })
+}
+
+fn usage() {
+    println!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
+        std::env::args().nth(0).unwrap());
+}
+
 fn main() {
     use std::fs::File;
     use std::io::Read;
-    use std::path::PathBuf;
+
+    let cfg = parse_configuration().unwrap_or_else(|| {
+        usage();
+        std::process::exit(1);
+    });
+
+    println!("config: {:#?}", cfg);
 
     let mut bytes = vec![];
-    let path = PathBuf::from(std::env::args_os().nth(1).expect("missing file argument"));
-    File::open(&path)
+    File::open(&cfg.input)
         .expect("failed to open file")
         .read_to_end(&mut bytes)
         .expect("failed to read file");
@@ -221,24 +325,15 @@ fn main() {
             *stats.entry((event.track, event.channel)).or_insert(0) += 1;
         }
 
-        // Select some tracks and shift them. 12 = one octave
-        // TODO: make this configurable from command line
-        match (event.track, event.channel) {
-            /*
-            // settings for test.mid
-            (1, 0) => Some(24),
-            (2, 1) => Some(0),
-            */
-
-            // settings for Take Five
-            (0,0) => None,
-            (0,1) => Some(12),
-            (0,2) => Some(30),
-            (0,3) => Some(12),
-            (0,9) => None,
-            (0,10) => None,
-            _ => None,
+        for selector in &cfg.selectors {
+            if event.track == selector.midi_track
+                && event.channel == selector.midi_channel
+            {
+                return Some(selector.offset);
+            }
         }
+
+        None
     });
     durations.sort_by_key(|event| event.timestamp);
 
@@ -250,10 +345,9 @@ fn main() {
         panic!("no notes selected!");
     }
 
-    let pdf_path = path.with_extension("pdf");
-    println!("Writing output to {:?}", pdf_path);
-    let f = File::create(&pdf_path)
-        .unwrap_or_else(|e| panic!("failed to create PDF file {:?}: {}", pdf_path, e));
+    println!("Writing output to {:?}", cfg.output);
+    let f = File::create(&cfg.output)
+        .unwrap_or_else(|e| panic!("failed to create PDF file {:?}: {}", &cfg.output, e));
     let mut pdf = pdf_canvas::Pdf::new(f)
         .expect("failed to create PDF");
 
@@ -264,7 +358,9 @@ fn main() {
     const HOLE_WIDTH: f32 = CHANNEL_WIDTH / 2.;
     const HOLE_MARGIN: f32 = CHANNEL_WIDTH / 4.;
 
-    fn note_rectangle(canvas: &mut pdf_canvas::Canvas, channel: u8, start: f32, height: f32) -> Result<(), std::io::Error> {
+    fn note_rectangle(canvas: &mut pdf_canvas::Canvas, channel: u8, start: f32, height: f32)
+        -> Result<(), std::io::Error>
+    {
         canvas.rectangle(
             channel as f32 * CHANNEL_WIDTH + HOLE_MARGIN + PAGE_MARGIN,
             start,
@@ -278,18 +374,15 @@ fn main() {
         .max()
         .unwrap();
 
-    // TODO: make this configurable from command line
-    const TIME_DIV_FACTOR: f32 = 4.;
-
-    pdf.render_page(PAGE_WIDTH, end_timestamp as f32 / TIME_DIV_FACTOR,
+    pdf.render_page(PAGE_WIDTH, end_timestamp as f32 / cfg.time_divisor,
         |canvas| {
             canvas.set_fill_color(pdf_canvas::graphicsstate::Color::gray(0))?;
             for note in durations {
                 note_rectangle(
                     canvas,
                     note.note.pianoroll_channel(),
-                    note.timestamp as f32 / TIME_DIV_FACTOR,
-                    note.duration as f32 / TIME_DIV_FACTOR)?;
+                    note.timestamp as f32 / cfg.time_divisor,
+                    note.duration as f32 / cfg.time_divisor)?;
                 canvas.fill()?;
             }
 
