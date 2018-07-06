@@ -2,6 +2,7 @@ extern crate pdf_canvas;
 extern crate nom_midi;
 use nom_midi::note::Note as MidiNote;
 
+use std::fs::File;
 use std::path::PathBuf;
 
 /// This represents the raw stream of events from the MIDI file.
@@ -32,16 +33,16 @@ struct Note {
 impl Note {
     pub fn try_from(inner: nom_midi::note::Note) -> Option<Self> {
         let raw: u8 = inner.into();
-        if raw < MidiNote::C1.into() {
-            None
-        } else if raw > MidiNote::G7.into() {
+        if raw < MidiNote::C1.into()
+            || raw > MidiNote::G7.into()
+        {
             None
         } else {
             Some(Note { inner })
         }
     }
 
-    pub fn pianoroll_channel(&self) -> u8 {
+    pub fn pianoroll_channel(self) -> u8 {
         // [0-5] = bass expressions
         // [6-7] = soft pedal
         // 8 = C1
@@ -54,11 +55,6 @@ impl Note {
         let raw: u8 = self.inner.into();
         let base: u8 = MidiNote::C1.into();
         raw - base
-    }
-
-    pub fn checked_offset(&self, offset: i8) -> Option<Self> {
-        let raw: i8 = self.inner.into();
-        Self::try_from(MidiNote::from(raw + offset))
     }
 }
 
@@ -88,7 +84,7 @@ fn notes(midi: nom_midi::Midi) -> impl Iterator<Item = NoteEvent> {
             let mut timestamp = 0u64;
             events.into_iter()
                 .filter_map(move |Event { delta_time, event }| {
-                    timestamp += delta_time as u64;
+                    timestamp += u64::from(delta_time);
                     match event {
                         EventType::Midi(MidiEvent { channel, event }) => {
                             let (note, action) = match event {
@@ -223,7 +219,7 @@ fn parse_configuration() -> Option<Configuration> {
     let mut time_divisor = None;
 
     let mut skip = 0;
-    let mut args = std::env::args_os().skip(1).peekable();// .collect::<Vec<_>>();
+    let mut args = std::env::args_os().skip(1).peekable();
     while let Some(arg) = args.next() {
         if skip > 0 {
             skip -= 1;
@@ -296,8 +292,57 @@ fn usage() {
         std::env::args().nth(0).unwrap());
 }
 
+fn render(notes: &[NoteWithDuration], cfg: &Configuration) {
+    println!("Writing output to {:?}", cfg.output);
+    let f = File::create(&cfg.output)
+        .unwrap_or_else(|e| panic!("failed to create PDF file {:?}: {}", &cfg.output, e));
+    let mut pdf = pdf_canvas::Pdf::new(f)
+        .expect("failed to create PDF");
+
+    const POINTS_PER_INCH: f32 = 72.;
+    const PAGE_WIDTH: f32 = POINTS_PER_INCH * 11.25;
+    const CHANNEL_WIDTH: f32 = POINTS_PER_INCH / 9.;
+    const PAGE_MARGIN: f32 = (PAGE_WIDTH - CHANNEL_WIDTH * 98.) / 2.;
+    const HOLE_WIDTH: f32 = CHANNEL_WIDTH / 2.;
+    const HOLE_MARGIN: f32 = CHANNEL_WIDTH / 4.;
+
+    fn note_rectangle(canvas: &mut pdf_canvas::Canvas, channel: u8, start: f32, height: f32)
+        -> Result<(), std::io::Error>
+    {
+        canvas.rectangle(
+            f32::from(channel) * CHANNEL_WIDTH + HOLE_MARGIN + PAGE_MARGIN,
+            start,
+            HOLE_WIDTH,
+            height,
+        )
+    }
+
+    let end_timestamp = notes.iter()
+        .map(|elem| elem.timestamp + elem.duration)
+        .max()
+        .unwrap();
+
+    pdf.render_page(PAGE_WIDTH, end_timestamp as f32 / cfg.time_divisor,
+        |canvas| {
+            canvas.set_fill_color(pdf_canvas::graphicsstate::Color::gray(0))?;
+            for note in notes {
+                note_rectangle(
+                    canvas,
+                    note.note.pianoroll_channel(),
+                    note.timestamp as f32 / cfg.time_divisor,
+                    note.duration as f32 / cfg.time_divisor)?;
+                canvas.fill()?;
+            }
+
+            Ok(())
+        })
+        .expect("failed to render page");
+
+    pdf.finish()
+        .expect("failed to finish PDF");
+}
+
 fn main() {
-    use std::fs::File;
     use std::io::Read;
 
     let cfg = parse_configuration().unwrap_or_else(|| {
@@ -341,55 +386,9 @@ fn main() {
         println!("track {}, channel {}: {} notes", entry.0 .0, entry.0 .1, entry.1);
     }
 
-    if durations.len() == 0 {
+    if durations.is_empty() {
         panic!("no notes selected!");
     }
 
-    println!("Writing output to {:?}", cfg.output);
-    let f = File::create(&cfg.output)
-        .unwrap_or_else(|e| panic!("failed to create PDF file {:?}: {}", &cfg.output, e));
-    let mut pdf = pdf_canvas::Pdf::new(f)
-        .expect("failed to create PDF");
-
-    const POINTS_PER_INCH: f32 = 72.;
-    const PAGE_WIDTH: f32 = POINTS_PER_INCH * 11.25;
-    const CHANNEL_WIDTH: f32 = POINTS_PER_INCH / 9.;
-    const PAGE_MARGIN: f32 = (PAGE_WIDTH - CHANNEL_WIDTH * 98.) / 2.;
-    const HOLE_WIDTH: f32 = CHANNEL_WIDTH / 2.;
-    const HOLE_MARGIN: f32 = CHANNEL_WIDTH / 4.;
-
-    fn note_rectangle(canvas: &mut pdf_canvas::Canvas, channel: u8, start: f32, height: f32)
-        -> Result<(), std::io::Error>
-    {
-        canvas.rectangle(
-            channel as f32 * CHANNEL_WIDTH + HOLE_MARGIN + PAGE_MARGIN,
-            start,
-            HOLE_WIDTH,
-            height,
-        )
-    }
-
-    let end_timestamp = durations.iter()
-        .map(|elem| elem.timestamp + elem.duration)
-        .max()
-        .unwrap();
-
-    pdf.render_page(PAGE_WIDTH, end_timestamp as f32 / cfg.time_divisor,
-        |canvas| {
-            canvas.set_fill_color(pdf_canvas::graphicsstate::Color::gray(0))?;
-            for note in durations {
-                note_rectangle(
-                    canvas,
-                    note.note.pianoroll_channel(),
-                    note.timestamp as f32 / cfg.time_divisor,
-                    note.duration as f32 / cfg.time_divisor)?;
-                canvas.fill()?;
-            }
-
-            Ok(())
-        })
-        .expect("failed to render page");
-
-    pdf.finish()
-        .expect("failed to finish PDF");
+    render(&durations, &cfg);
 }
