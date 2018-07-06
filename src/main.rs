@@ -322,7 +322,13 @@ fn render(notes: &[NoteWithDuration], cfg: &Configuration) {
         .max()
         .unwrap();
 
-    pdf.render_page(PAGE_WIDTH, end_timestamp as f32 / cfg.time_divisor,
+    let page_height = end_timestamp as f32 / cfg.time_divisor;
+    println!("piano roll length: {} inches", page_height / POINTS_PER_INCH);
+    if page_height / POINTS_PER_INCH > 200. {
+        println!("WARNING: exceeding PDF page height limit of 200 inches");
+    }
+
+    pdf.render_page(PAGE_WIDTH, page_height,
         |canvas| {
             canvas.set_fill_color(pdf_canvas::graphicsstate::Color::gray(0))?;
             for note in notes {
