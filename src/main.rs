@@ -3,7 +3,9 @@ extern crate nom_midi;
 use nom_midi::note::Note as MidiNote;
 
 use std::fs::File;
-use std::path::PathBuf;
+
+mod config;
+use config::{Configuration, parse_configuration};
 
 /// This represents the raw stream of events from the MIDI file.
 #[derive(Debug)]
@@ -195,100 +197,8 @@ fn note_durations(
     finished_notes
 }
 
-#[derive(Debug)]
-struct Configuration {
-    input: PathBuf,
-    output: PathBuf,
-    selectors: Vec<ChannelSelector>,
-    time_divisor: f32,
-}
-
-#[derive(Debug)]
-struct ChannelSelector {
-    midi_track: usize,
-    midi_channel: u8,
-    offset: i8,
-}
-
-fn parse_configuration() -> Option<Configuration> {
-    use std::ffi::OsStr;
-
-    let mut input = None;
-    let mut output = None;
-    let mut selectors = vec![];
-    let mut time_divisor = None;
-
-    let mut skip = 0;
-    let mut args = std::env::args_os().skip(1).peekable();
-    while let Some(arg) = args.next() {
-        if skip > 0 {
-            skip -= 1;
-            continue;
-        }
-        if arg == OsStr::new("-o") {
-            let next_arg = args.peek()
-                .unwrap_or_else(|| panic!("-o must be followed by another argument"));
-            output = Some(PathBuf::from(next_arg));
-            skip = 1;
-        } else if input.is_none() {
-            input = Some(PathBuf::from(arg));
-        } else {
-            let arg = arg.to_str().unwrap_or_else(|| panic!("non-utf8 argument {:?}", arg));
-            // channel selector or timediv
-            if arg.starts_with('/') {
-                time_divisor = Some(arg[1..].parse()
-                    .unwrap_or_else(|e| panic!("time divisor parse error: {}", e)));
-            } else {
-                let selector = parse_track_selector(arg)
-                    .unwrap_or_else(|e| panic!("malformed track selector \"{}\": {}", arg, e));
-                selectors.push(selector);
-            }
-        }
-    }
-
-    let input = input?;
-    let output = output.unwrap_or_else(|| input.with_extension("pdf"));
-    let time_divisor = time_divisor.unwrap_or(1.);
-    Some(Configuration {
-        input,
-        output,
-        selectors,
-        time_divisor,
-    })
-}
-
-fn parse_track_selector(arg: &str) -> Result<ChannelSelector, String> {
-    let mut track_parts = arg.splitn(2, ',');
-    let track: usize = track_parts.next()
-        .ok_or_else(|| "expected a ','".to_owned())?
-        .parse()
-        .map_err(|e| format!("bad track number: {}", e))?;
-    let channel_rest = track_parts.next()
-        .ok_or_else(|| "expected a ','".to_owned())?;
-    let (channel, offset): (u8, i8) = match channel_rest.find(|c| c == '+' || c == '-') {
-        Some(plusminus_pos) => {
-            let (channel_str, offset_str) = channel_rest.split_at(plusminus_pos);
-            let channel: u8 = channel_str.parse()
-                .map_err(|e| format!("bad channel number: {}", e))?;
-            let offset: i8 = offset_str.parse()
-                .map_err(|e| format!("bad offset number: {}", e))?;
-            (channel, offset)
-        }
-        None => {
-            let channel: u8 = channel_rest.parse()
-                .map_err(|e| format!("bad channel number: {}", e))?;
-            (channel, 0)
-        }
-    };
-    Ok(ChannelSelector {
-        midi_track: track,
-        midi_channel: channel,
-        offset,
-    })
-}
-
 fn usage() {
-    println!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
+    eprintln!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
         std::env::args().nth(0).unwrap());
 }
 
@@ -351,7 +261,8 @@ fn render(notes: &[NoteWithDuration], cfg: &Configuration) {
 fn main() {
     use std::io::Read;
 
-    let cfg = parse_configuration().unwrap_or_else(|| {
+    let cfg = parse_configuration(std::env::args_os()).unwrap_or_else(|e| {
+        eprintln!("{}", e);
         usage();
         std::process::exit(1);
     });
