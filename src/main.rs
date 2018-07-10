@@ -76,8 +76,40 @@ impl PartialOrd for Note {
 
 impl Eq for Note {}
 
-fn notes(midi: nom_midi::Midi) -> impl Iterator<Item = NoteEvent> {
+fn parse_midi(bytes: &[u8]) -> nom_midi::Midi {
+    let midi_result = nom_midi::parser::parse_midi(&bytes);
+    let midi = if midi_result.is_incomplete() {
+        panic!("failed to parse MIDI file: incomplete file");
+    } else if midi_result.is_err() {
+        // Unfortunately, nom_midi doesn't have any custom error type and just returns the standard
+        // nom errors, which are the most unhelpful errors ever.
+        // Even getting something like the position in the file it failed at requires implementing a
+        // custom input type... oh but nom_midi requires that its input be `&[u8]`. >:(
+        // Sorry, but this error message is just going to be terrible.
+        panic!("failed to parse MIDI file: {:?}", midi_result.unwrap_err());
+    } else {
+        midi_result.unwrap().1
+    };
+
+    print!("MIDI file format: ");
+    match midi.header.format {
+        nom_midi::MidiFormat::SingleTrack => println!("single track"),
+        nom_midi::MidiFormat::MultipleTrack(n) => println!("multiple track ({})", n),
+        nom_midi::MidiFormat::MultipleSong(n) => println!("multiple song ({})", n),
+    }
+    match midi.header.division {
+        nom_midi::Division::Metrical(n) => println!("{} MIDI ticks per metronome beat", n),
+        nom_midi::Division::Timecode { .. } =>
+            println!("WARNING: unsupported timecode-based MIDI file"),
+    }
+
+    midi
+}
+
+fn notes(data: &[u8]) -> impl Iterator<Item = NoteEvent> {
     use nom_midi::{Event, EventType, MetaEvent, MidiEvent, MidiEventType, Track};
+
+    let midi = parse_midi(data);
 
     midi.tracks
         .into_iter()
@@ -273,33 +305,7 @@ fn main() {
         .read_to_end(&mut bytes)
         .expect("failed to read file");
 
-    let midi_result = nom_midi::parser::parse_midi(&bytes);
-    let midi = if midi_result.is_incomplete() {
-        panic!("failed to parse MIDI file: incomplete file");
-    } else if midi_result.is_err() {
-        // Unfortunately, nom_midi doesn't have any custom error type and just returns the standard
-        // nom errors, which are the most unhelpful errors ever.
-        // Even getting something like the position in the file it failed at requires implementing a
-        // custom input type... oh but nom_midi requires that its input be `&[u8]`. >:(
-        // Sorry, but this error message is just going to be terrible.
-        panic!("failed to parse MIDI file: {:?}", midi_result.unwrap_err());
-    } else {
-        midi_result.unwrap().1
-    };
-
-    print!("MIDI format: ");
-    match midi.header.format {
-        nom_midi::MidiFormat::SingleTrack => println!("single track"),
-        nom_midi::MidiFormat::MultipleTrack(n) => println!("multiple track ({})", n),
-        nom_midi::MidiFormat::MultipleSong(n) => println!("multiple song ({})", n),
-    };
-    match midi.header.division {
-        nom_midi::Division::Metrical(n) => println!("{} MIDI ticks per metronome beat", n),
-        nom_midi::Division::Timecode { .. } =>
-            println!("WARNING: unsupported timecode-based MIDI file"),
-    }
-
-    let notes = notes(midi);
+    let notes = notes(&bytes);
 
     let mut stats = std::collections::BTreeMap::<(usize, u8), u64>::new();
     let mut durations = note_durations(notes.into_iter(), |event| {
