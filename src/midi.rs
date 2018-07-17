@@ -273,6 +273,10 @@ mod midi_impl {
                 MetaEvent::CopyrightNotice => {
                     println!("Copyright: {:?}", String::from_utf8_lossy(data));
                 }
+                MetaEvent::Marker => {
+                    println!("Track {} at {}: {:?}",
+                        self.track, self.timestamp, String::from_utf8_lossy(data));
+                }
                 MetaEvent::EndOfTrack => (),
                 _ => {
                     println!("Track {} at {}: {:?}: {:?}",
@@ -288,29 +292,68 @@ mod midi_impl {
         ) {
             use ghakuf::messages::MidiEvent;
             self.timestamp += u64::from(delta_time);
-            let (channel, note, action) = match event {
+
+            match event {
                 MidiEvent::NoteOn { ch, note, velocity } => {
-                    if *velocity == 0 {
-                        (ch, note, NoteAction::Off)
+                    let action = if *velocity == 0 {
+                        NoteAction::Off
                     } else {
-                        (ch, note, NoteAction::On)
-                    }
+                        NoteAction::On
+                    };
+
+                    let note = MidiNote::try_from(*note).unwrap();
+
+                    self.events.push(NoteEvent {
+                        timestamp: self.timestamp,
+                        track: self.track,
+                        channel: *ch,
+                        note,
+                        action,
+                    });
                 }
                 MidiEvent::NoteOff { ch, note, .. } => {
-                    (ch, note, NoteAction::Off)
+                    let note = MidiNote::try_from(*note).unwrap();
+
+                    self.events.push(NoteEvent {
+                        timestamp: self.timestamp,
+                        track: self.track,
+                        channel: *ch,
+                        note,
+                        action: NoteAction::Off,
+                    });
                 }
-                _ => return
-            };
-
-            let note = MidiNote::try_from(*note).unwrap();
-
-            self.events.push(NoteEvent {
-                timestamp: self.timestamp,
-                track: self.track,
-                channel: *channel,
-                note,
-                action,
-            });
+                MidiEvent::ControlChange { ch, control, data } => {
+                    let off_on = |data: &u8| if *data < 64 { "off" } else { "on" };
+                    let info = match control {
+                        0 => Some(format!("select bank {}", data)),
+                        64 => Some(format!("sustain {}", off_on(data))),
+                        65 => Some(format!("portamento {}", off_on(data))),
+                        66 => Some(format!("sostenuto {}", off_on(data))),
+                        67 => Some(format!("soft pedal {}", off_on(data))),
+                        68 => Some(format!("legato {}", off_on(data))),
+                        _ => None,
+                    };
+                    if let Some(info) = info {
+                        println!("track {}, channel {}, time {}: {}",
+                            self.track, ch, self.timestamp, info);
+                    }
+                }
+                MidiEvent::ProgramChange { ch, program } => {
+                    if *program < 128 {
+                        println!("track {}, channel {}, time {}: {}",
+                            self.track, ch, self.timestamp,
+                            ::program::MIDI_PROGRAM[*program as usize]);
+                    } else {
+                        println!("track {}, channel {}, time {}: set program {}",
+                            self.track, ch, self.timestamp, program);
+                    }
+                }
+                MidiEvent::PitchBendChange { .. }
+                    | MidiEvent::PolyphonicKeyPressure { .. } => (),
+                _ => {
+                    println!("track {}, time {}, {:?}", self.track, self.timestamp, event);
+                }
+            }
         }
 
         fn sys_ex_event(

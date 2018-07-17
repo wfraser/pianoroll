@@ -14,6 +14,7 @@ mod midi;
 use midi::{notes, note_durations, NoteAction, NoteWithDuration};
 
 mod note;
+mod program;
 
 fn usage() {
     eprintln!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
@@ -109,8 +110,8 @@ fn main() {
     }
 
     if durations.is_empty() {
-        panic!("no notes selected!");
+        println!("no notes selected!");
+    } else {
+        render(&durations, &cfg);
     }
-
-    render(&durations, &cfg);
 }
