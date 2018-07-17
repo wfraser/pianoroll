@@ -13,6 +13,18 @@ use config::{Configuration, parse_configuration};
 mod midi;
 use midi::{notes, note_durations, NoteAction, NoteWithDuration};
 
+#[cfg(feature = "ghakuf")]
+mod midi_impl_ghakuf;
+
+#[cfg(feature = "ghakuf")]
+mod midi_impl { pub use midi_impl_ghakuf::*; }
+
+#[cfg(feature = "nom-midi")]
+mod midi_impl_nom_midi;
+
+#[cfg(feature = "nom-midi")]
+mod midi_impl { pub use midi_impl_nom_midi::*; }
+
 mod note;
 mod program;
 
