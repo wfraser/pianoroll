@@ -161,7 +161,7 @@ impl MidiNote {
         {
             None
         } else {
-            Some(self.as_u8())
+            Some(self.as_u8() - MidiNote::C1.as_u8() + 8)
         }
     }
 

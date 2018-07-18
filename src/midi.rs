@@ -1,7 +1,7 @@
 use midi_impl;
 use note::MidiNote;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NoteEvent {
     pub timestamp: u64,
     pub track: usize,
@@ -20,12 +20,56 @@ pub struct NoteWithDuration {
     pub note: MidiNote,
 }
 
-pub fn notes(path: &::std::path::Path) -> Result<impl Iterator<Item = NoteEvent>, String> {
-    midi_impl::notes(path)
+#[derive(Debug)]
+pub struct TrackInfo {
+    pub midi_track: usize,
+    pub name: Option<String>,
+    pub instrument: Option<String>,
 }
 
-pub fn note_durations(
-    notes: impl Iterator<Item = NoteEvent>,
+#[derive(Debug)]
+pub struct ChannelInfo {
+    pub midi_track: usize,
+    pub midi_channel: u8,
+    pub bank: u8,
+    pub program: u8,
+}
+
+#[derive(Debug)]
+pub struct Midi {
+    midi_impl: midi_impl::MidiImpl,
+}
+
+impl Midi {
+    pub fn new() -> Self {
+        Self {
+            midi_impl: midi_impl::MidiImpl::new(),
+        }
+    }
+
+    pub fn read(&mut self, path: &::std::path::Path) -> Result<
+        (impl Iterator<Item = &NoteEvent>, impl Iterator<Item = &ChannelInfo>),
+        String>
+    {
+        self.midi_impl.read(path)?;
+        Ok((self.midi_impl.notes(), self.midi_impl.channels()))
+    }
+
+    pub fn tracks(&self) -> impl Iterator<Item = &TrackInfo> {
+        self.midi_impl.tracks()
+    }
+
+    pub fn channels(&self) -> impl Iterator<Item = &ChannelInfo> {
+        self.midi_impl.channels()
+    }
+
+    pub fn notes(&self) -> impl Iterator<Item = &NoteEvent> {
+        self.midi_impl.notes()
+    }
+}
+
+pub fn note_durations<'a>(
+    notes: impl Iterator<Item = &'a NoteEvent>,
     mut filter: impl FnMut(&NoteEvent) -> Option<i8>,
 ) -> Vec<NoteWithDuration> {
     use std::collections::btree_map::*;

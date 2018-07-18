@@ -1,32 +1,19 @@
 extern crate pdf_canvas;
-
-#[cfg(feature = "nom-midi")]
-extern crate nom_midi;
-#[cfg(feature = "ghakuf")]
 extern crate ghakuf;
-
-use std::fs::File;
 
 mod config;
 use config::{Configuration, parse_configuration};
 
 mod midi;
-use midi::{notes, note_durations, NoteAction, NoteWithDuration};
+use midi::{note_durations, Midi, NoteAction, NoteWithDuration};
 
-#[cfg(feature = "ghakuf")]
 mod midi_impl_ghakuf;
-
-#[cfg(feature = "ghakuf")]
 mod midi_impl { pub use midi_impl_ghakuf::*; }
-
-#[cfg(feature = "nom-midi")]
-mod midi_impl_nom_midi;
-
-#[cfg(feature = "nom-midi")]
-mod midi_impl { pub use midi_impl_nom_midi::*; }
 
 mod note;
 mod program;
+
+use std::collections::btree_map::*;
 
 fn usage() {
     eprintln!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
@@ -35,7 +22,7 @@ fn usage() {
 
 fn render(notes: &[NoteWithDuration], cfg: &Configuration) {
     println!("Writing output to {:?}", cfg.output);
-    let f = File::create(&cfg.output)
+    let f = std::fs::File::create(&cfg.output)
         .unwrap_or_else(|e| panic!("failed to create PDF file {:?}: {}", &cfg.output, e));
     let mut pdf = pdf_canvas::Pdf::new(f)
         .expect("failed to create PDF");
@@ -96,10 +83,11 @@ fn main() {
         std::process::exit(1);
     });
 
-    let notes = notes(&cfg.input).unwrap();
+    let mut midi = Midi::new();
+    midi.read(&cfg.input).unwrap();
 
     let mut stats = std::collections::BTreeMap::<(usize, u8), u64>::new();
-    let mut durations = note_durations(notes.into_iter(), |event| {
+    let mut durations = note_durations(midi.notes(), |event| {
         // Make stats on how many notes are in each track/channel.
         if event.action == NoteAction::On {
             *stats.entry((event.track, event.channel)).or_insert(0) += 1;
@@ -117,8 +105,45 @@ fn main() {
     });
     durations.sort_by_key(|event| event.timestamp);
 
-    for entry in stats {
-        println!("track {}, channel {}: {} notes", entry.0 .0, entry.0 .1, entry.1);
+    let channels_by_track: BTreeMap<usize, Vec<&midi::ChannelInfo>>
+        = midi.channels()
+            .fold(BTreeMap::new(), |mut map, item| {
+                match map.entry(item.midi_track) {
+                    Entry::Occupied(mut entry) => { entry.get_mut().push(item); }
+                    Entry::Vacant(entry) => { entry.insert(vec![item]); }
+                }
+                map
+            });
+
+    // Print info on the tracks and channels.
+    for track in midi.tracks() {
+        print!("track {}:", track.midi_track);
+        if let Some(ref name) = track.name {
+            print!(" title: \"{}\"", name);
+        }
+        if let Some(ref instrument) = track.instrument {
+            print!(" instrument name: \"{}\", ", instrument);
+        }
+        println!();
+        let channels_iter = channels_by_track
+            .get(&track.midi_track)
+            .map(|x| x.iter())
+            .unwrap_or_else(|| [].iter());
+        for channel in channels_iter {
+            println!("track {}, channel {}:", channel.midi_track, channel.midi_channel);
+            if channel.midi_channel == 9 {
+                println!("\tPercussion");
+            } else if (channel.bank == 0 || channel.bank == 121) && channel.program < 128 {
+                println!("\tMIDI instrument \"{}\"", program::MIDI_PROGRAM[channel.program as usize]);
+            } else {
+                println!("\tunknown MIDI instrument: bank {}, program {}", channel.bank, channel.program);
+            }
+            if let Some(count) = stats.get(&(channel.midi_track, channel.midi_channel)) {
+                println!("\t{} notes", count);
+            } else {
+                println!("\tno notes");
+            }
+        }
     }
 
     if durations.is_empty() {
