@@ -134,9 +134,11 @@ fn main() {
             if channel.midi_channel == 9 {
                 println!("\tPercussion");
             } else if (channel.bank == 0 || channel.bank == 121) && channel.program < 128 {
-                println!("\tMIDI instrument \"{}\"", program::MIDI_PROGRAM[channel.program as usize]);
+                println!("\tMIDI instrument \"{}\"",
+                    program::MIDI_PROGRAM[channel.program as usize]);
             } else {
-                println!("\tunknown MIDI instrument: bank {}, program {}", channel.bank, channel.program);
+                println!("\tunknown MIDI instrument: bank {}, program {}",
+                    channel.bank, channel.program);
             }
             if let Some(count) = stats.get(&(channel.midi_track, channel.midi_channel)) {
                 println!("\t{} notes", count);
@@ -149,6 +151,16 @@ fn main() {
     if durations.is_empty() {
         println!("no notes selected!");
     } else {
+        let mut output_filename = cfg.output.file_stem().unwrap().to_owned();
+        output_filename.push(std::ffi::OsStr::new("_pianoroll"));
+
+        let midi_output = cfg.output
+            .with_file_name(output_filename)
+            .with_extension("mid");
+
+        let tempo_bpm = 170; // TODO: get this from the input
+        midi::Midi::write(&midi_output, &durations, tempo_bpm).unwrap();
+
         render(&durations, &cfg);
     }
 }

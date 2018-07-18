@@ -55,6 +55,12 @@ impl Midi {
         Ok((self.midi_impl.notes(), self.midi_impl.channels()))
     }
 
+    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], tempo: u32)
+        -> Result<(), String>
+    {
+        midi_impl::MidiImpl::write(path, notes, tempo)
+    }
+
     pub fn tracks(&self) -> impl Iterator<Item = &TrackInfo> {
         self.midi_impl.tracks()
     }
@@ -109,12 +115,13 @@ pub fn note_durations<'a>(
             }
             (NoteAction::On, Entry::Occupied(entry)) => {
                 let e = entry.get();
-                println!("ERROR: at {}, note {:?} on track {} channel {} already pressed at {}",
-                    event.timestamp, note, e.midi_track, e.midi_channel, e.timestamp);
+                println!("ERROR: at {}, note {:?} on track {} channel {} already pressed at {} by {},{}",
+                    event.timestamp, note, event.track, event.channel,
+                    e.timestamp, e.midi_track, e.midi_channel);
             }
             (NoteAction::Off, Entry::Vacant(_)) => {
-                println!("ERROR: at {}, note {:?} on track {} channel {} is not pressed yet",
-                    event.timestamp, note, event.track, event.channel);
+                println!("ERROR: at {} on track {} channel {}, note {:?} is not pressed yet",
+                    event.timestamp, event.track, event.channel, note);
             }
             (NoteAction::Off, Entry::Occupied(entry)) => {
                 let start_timestamp = entry.remove().timestamp;

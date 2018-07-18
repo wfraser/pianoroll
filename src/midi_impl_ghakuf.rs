@@ -1,4 +1,4 @@
-use ghakuf::{self, messages::{MetaEvent, MidiEvent}};
+use ghakuf::{self, messages::{Message, MetaEvent, MidiEvent}};
 use midi::*;
 use note::MidiNote;
 use std::collections::btree_map::*;
@@ -52,6 +52,82 @@ impl MidiImpl {
 
     pub fn notes(&self) -> impl Iterator<Item = &NoteEvent> {
         self.note_events.iter()
+    }
+
+    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], tempo_bpm: u32)
+        -> Result<(), String>
+    {
+        let tempo = 60 * 1_000_000 / tempo_bpm;
+        const VELOCITY: u8 = 90; // arbitrary but seems to sound good
+
+        let mut messages = vec![
+            Message::MetaEvent {
+                delta_time: 0,
+                event: MetaEvent::SetTempo,
+                data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
+            },
+            Message::MetaEvent {
+                delta_time: 0,
+                event: MetaEvent::EndOfTrack,
+                data: Vec::new(),
+            },
+            Message::TrackChange,
+        ];
+
+        let mut note_events = vec![];
+        for note in notes {
+            note_events.push(NoteEvent {
+                timestamp: note.timestamp,
+                track: 0,
+                channel: 0,
+                note: note.note,
+                action: NoteAction::On,
+            });
+            note_events.push(NoteEvent {
+                timestamp: note.timestamp + note.duration,
+                track: 0,
+                channel: 0,
+                note: note.note,
+                action: NoteAction::Off,
+            });
+        }
+        note_events.sort_by_key(|event| event.timestamp);
+
+        let mut last_timestamp = 0;
+        for note in note_events {
+            let event = match note.action {
+                NoteAction::On => MidiEvent::NoteOn {
+                    ch: note.channel,
+                    note: note.note.as_u8(),
+                    velocity: VELOCITY,
+                },
+                NoteAction::Off => MidiEvent::NoteOff {
+                    ch: note.channel,
+                    note: note.note.as_u8(),
+                    velocity: VELOCITY,
+                },
+            };
+            let msg = Message::MidiEvent {
+                delta_time: (note.timestamp - last_timestamp) as u32,
+                event,
+            };
+            messages.push(msg);
+            last_timestamp = note.timestamp;
+        }
+        messages.push(
+            Message::MetaEvent {
+                delta_time: 0,
+                event: MetaEvent::EndOfTrack,
+                data: Vec::new(),
+            });
+
+        let mut writer = ghakuf::writer::Writer::new();
+        for message in &messages {
+            writer.push(&message);
+        }
+
+        writer.write(path)
+            .map_err(|e| format!("Error writing MIDI: {}", e))
     }
 }
 
