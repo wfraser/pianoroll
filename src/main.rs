@@ -115,6 +115,9 @@ fn main() {
                 map
             });
 
+    let time_base = midi.time_base().expect("no time base set in MIDI file?!");
+    let tempo = midi.tempo().expect("no tempo set in MIDI file");
+
     // Print info on the tracks and channels.
     for track in midi.tracks() {
         print!("track {}:", track.midi_track);
@@ -158,8 +161,7 @@ fn main() {
             .with_file_name(output_filename)
             .with_extension("mid");
 
-        let tempo_bpm = 170; // TODO: get this from the input
-        midi::Midi::write(&midi_output, &durations, tempo_bpm).unwrap();
+        midi::Midi::write(&midi_output, &durations, time_base, tempo).unwrap();
 
         render(&durations, &cfg);
     }

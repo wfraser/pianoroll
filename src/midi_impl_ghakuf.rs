@@ -8,6 +8,8 @@ pub struct MidiImpl {
     track_info: Vec<TrackInfo>,
     channel_info: Vec<ChannelInfo>,
     note_events: Vec<NoteEvent>,
+    time_base: Option<u16>,
+    tempo: Option<u32>,
 }
 
 impl MidiImpl {
@@ -16,6 +18,8 @@ impl MidiImpl {
             track_info: vec![],
             channel_info: vec![],
             note_events: vec![],
+            time_base: None,
+            tempo: None,
         }
     }
 
@@ -38,6 +42,8 @@ impl MidiImpl {
         self.note_events = notes_handler.events;
         self.channel_info = channel_handler.channel_info().collect();
         self.track_info = channel_handler.track_info().collect();
+        self.time_base = song_info_handler.time_base;
+        self.tempo = song_info_handler.tempo;
 
         Ok(())
     }
@@ -54,10 +60,17 @@ impl MidiImpl {
         self.note_events.iter()
     }
 
-    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], tempo_bpm: u32)
+    pub fn time_base(&self) -> Option<u16> {
+        self.time_base
+    }
+
+    pub fn tempo(&self) -> Option<u32> {
+        self.tempo
+    }
+
+    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], time_base: u16, tempo: u32)
         -> Result<(), String>
     {
-        let tempo = 60 * 1_000_000 / tempo_bpm;
         const VELOCITY: u8 = 90; // arbitrary but seems to sound good
 
         let mut messages = vec![
@@ -122,6 +135,7 @@ impl MidiImpl {
             });
 
         let mut writer = ghakuf::writer::Writer::new();
+        writer.time_base(time_base);
         for message in &messages {
             writer.push(&message);
         }
@@ -403,11 +417,17 @@ impl ghakuf::reader::Handler for ChannelInfoHandler {
     }
 }
 
-struct SongInfoHandler;
+struct SongInfoHandler {
+    time_base: Option<u16>,
+    tempo: Option<u32>,
+}
 
 impl SongInfoHandler {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            time_base: None,
+            tempo: None,
+        }
     }
 }
 
@@ -421,6 +441,7 @@ impl ghakuf::reader::Handler for SongInfoHandler {
             _ => println!("unknown!"),
         }
         if time_base > 0 {
+            self.time_base = Some(time_base);
             println!("{} MIDI ticks per metronome beat", time_base);
         } else {
             println!("WARNING: unsupported timecode-based MIDI file");
@@ -438,11 +459,15 @@ impl ghakuf::reader::Handler for SongInfoHandler {
                 println!("Copyright: {:?}", String::from_utf8_lossy(data));
             }
             MetaEvent::SetTempo => {
-                let mut micros = 0u64; // microseconds per beat
+                let mut micros = 0u32; // microseconds per beat
                 for byte in data {
                     micros <<= 8;
-                    micros += u64::from(*byte);
+                    micros += u32::from(*byte);
                 }
+                if self.tempo.is_some() {
+                    println!("WARNING: tempo changes are not supported; using new tempo");
+                }
+                self.tempo = Some(micros);
                 println!("Tempo: {} beats per minute", 60_000_000 / micros);
             }
             MetaEvent::Marker => {

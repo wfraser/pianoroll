@@ -47,18 +47,14 @@ impl Midi {
         }
     }
 
-    pub fn read(&mut self, path: &::std::path::Path) -> Result<
-        (impl Iterator<Item = &NoteEvent>, impl Iterator<Item = &ChannelInfo>),
-        String>
-    {
-        self.midi_impl.read(path)?;
-        Ok((self.midi_impl.notes(), self.midi_impl.channels()))
+    pub fn read(&mut self, path: &::std::path::Path) -> Result<(), String> {
+        self.midi_impl.read(path)
     }
 
-    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], tempo: u32)
+    pub fn write(path: &::std::path::Path, notes: &[NoteWithDuration], time_base: u16, tempo: u32)
         -> Result<(), String>
     {
-        midi_impl::MidiImpl::write(path, notes, tempo)
+        midi_impl::MidiImpl::write(path, notes, time_base, tempo)
     }
 
     pub fn tracks(&self) -> impl Iterator<Item = &TrackInfo> {
@@ -71,6 +67,14 @@ impl Midi {
 
     pub fn notes(&self) -> impl Iterator<Item = &NoteEvent> {
         self.midi_impl.notes()
+    }
+
+    pub fn time_base(&self) -> Option<u16> {
+        self.midi_impl.time_base()
+    }
+
+    pub fn tempo(&self) -> Option<u32> {
+        self.midi_impl.tempo()
     }
 }
 
