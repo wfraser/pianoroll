@@ -83,13 +83,6 @@ MIDI file format: single track
 96 MIDI ticks per metronome beat
 Copyright: "(C)1991 Roland Corporation"
 Tempo: 180 beats per minute
-ERROR: at 386, note Ds2 on track 0 channel 1 already pressed at 386 by 0,0
-ERROR: at 471 on track 0 channel 1, note Ds2 is not pressed yet
-
- [... hundreds of errors ...]
-
-ERROR: at 56834, note B2 on track 0 channel 0 already pressed at 56833 by 0,1
-ERROR: at 56919 on track 0 channel 0, note B2 is not pressed yet
 track 0: title: "Take Five"
 track 0, channel 0:
         MIDI instrument "Acoustic Grand Piano"
@@ -117,14 +110,7 @@ piano roll length: 791.6667 inches
 WARNING: exceeding PDF page height limit of 200 inches
 ```
 
-What's with the huge spew of errors?! Well, the piano part and the bass part overlap a lot when
-they play the main theme of this song, so they both try to press the same keys pretty often. In a
-single instrument, this is impossible to do, so `pianoroll` complains. In this case, though, the
-two are mostly in sync, and so it doesn't actually matter; the music sounds just fine when only one
-of them presses the keys. When they break out into solos, however, they separate, so it's good to
-have both parts included in the mix.
-
-Also note the warning at the end about the page size. PDFs have an unofficial limit of 200x200
+Note the warning at the end about the page size. PDFs have an unofficial limit of 200x200
 inches per page. Technically the standard allows much larger pages, but an older version had this
 limit, and many PDF reading software is unable to handle pages larger than 200 inches. Converting
 the PDF to PostScript (using the Unix tool `pdf2ps` for example) can help.
@@ -138,14 +124,20 @@ seems to produce a nice result. Do that and you'll get output that ends in:
 
 ## Errors
 
-As mentioned above, `pianoroll` will complain if two instruments try to play the same note at the
-same time, including if one instrument has a note held down while another tries to press it. (Maybe
-in the future I'll hack around this by forcing the first one to stop pressing, but this is tricky
-to get right).
+There are a couple different errors that `pianoroll` can print in various circumstances:
 
-You get a similar error if an instrument tries to release a note that isn't held down. You may get
-this in conjunction with the above error, due to one of them being ignored, or you may just get it
-if your MIDI file is werid.
+First, and this is the error you'll probably see most often, `pianoroll` will complain if an
+instrument tries to play a note while another instrument has that note held down.
+There's a little bit of a fudge factor in the code, where if two instruments try to press
+the same note close enough to each other (within a fraction of a beat), the error message is
+suppressed, based on the assumption that you probably wouldn't be able to hear the difference
+anyway. So if you do get this error, you might want to either choose different tracks, or try and
+offset one by an octave (+/- 12).
+(Maybe in the future I'll hack around this by forcing the first one to stop pressing, but this is
+tricky to get right.)
+
+You get a similar error if an instrument tries to release a note that isn't held down. This
+shouldn't happen unless your MIDI file is doing something really weird.
 
 You will also get an error if there are notes that go beyond the range of notes representable on a
 piano roll. Piano rolls can represent notes from C1 to G7, which is 79 keys. If the MIDI file has

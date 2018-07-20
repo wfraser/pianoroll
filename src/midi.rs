@@ -80,13 +80,14 @@ impl Midi {
 
 pub fn note_durations<'a>(
     notes: impl Iterator<Item = &'a NoteEvent>,
+    time_base: u16,
     mut filter: impl FnMut(&NoteEvent) -> Option<i8>,
 ) -> Vec<NoteWithDuration> {
     use std::collections::btree_map::*;
 
     // If notes overlap by this many ticks or less, don't print an error.
-    // TODO: determine this number based on the time_base value or something.
-    const FUDGE_FACTOR_TICKS: u64 = 10;
+    // Experimentally determined: a third of a beat sounds about right.
+    let fudge_factor_ticks = u64::from(time_base) / 3;
 
     // And then keep track of notes that we had multiple presses on, so that the release doesn't
     // also cause an error to be printed.
@@ -127,10 +128,11 @@ pub fn note_durations<'a>(
             }
             (NoteAction::On, Entry::Occupied(entry)) => {
                 let prev = entry.get();
-                if event.timestamp - prev.timestamp > FUDGE_FACTOR_TICKS {
+                if event.timestamp - prev.timestamp > fudge_factor_ticks {
                     println!("ERROR: at {}, note {:?} on track {} channel {} already pressed at {} by {},{}",
                         event.timestamp, note, event.track, event.channel,
                         prev.timestamp, prev.midi_track, prev.midi_channel);
+                    // TODO: maybe print errors in terms of measures & beats instead of timestamp?
                 }
                 let suppress_count = error_suppressed.entry(event.note).or_insert(0);
                 *suppress_count += 1;

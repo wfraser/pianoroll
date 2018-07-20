@@ -86,8 +86,11 @@ fn main() {
     let mut midi = Midi::new();
     midi.read(&cfg.input).unwrap();
 
+    let time_base = midi.time_base().expect("no time base set in MIDI file?!");
+    let tempo = midi.tempo().expect("no tempo set in MIDI file");
+
     let mut stats = std::collections::BTreeMap::<(usize, u8), u64>::new();
-    let mut durations = note_durations(midi.notes(), |event| {
+    let mut durations = note_durations(midi.notes(), time_base, |event| {
         // Make stats on how many notes are in each track/channel.
         if event.action == NoteAction::On {
             *stats.entry((event.track, event.channel)).or_insert(0) += 1;
@@ -114,9 +117,6 @@ fn main() {
                 }
                 map
             });
-
-    let time_base = midi.time_base().expect("no time base set in MIDI file?!");
-    let tempo = midi.tempo().expect("no tempo set in MIDI file");
 
     // Print info on the tracks and channels.
     for track in midi.tracks() {
