@@ -44,30 +44,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "memchr"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "nom"
-version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "memchr 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "nom-midi"
-version = "0.3.0"
-source = "git+https://github.com/wfraser/nom-midi-rs#95c4b5b90b9740289524018b351791acfedf84b9"
-dependencies = [
- "nom 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "pdf-canvas"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -81,7 +57,6 @@ name = "pianoroll"
 version = "0.1.0"
 dependencies = [
  "ghakuf 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "nom-midi 0.3.0 (git+https://github.com/wfraser/nom-midi-rs)",
  "pdf-canvas 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -127,9 +102,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)" = "b685088df2b950fccadf07a7187c8ef846a959c142338a48f9dc0b94517eb5f1"
 "checksum log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
 "checksum log 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "61bd98ae7f7b754bc53dca7d44b604f733c6bba044ea6f41bc8d89272d8161d2"
-"checksum memchr 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "796fba70e76612589ed2ce7f45282f5af869e0fdd7cc6199fa1aa1f1d591ba9d"
-"checksum nom 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "898696750eb5c3ce5eb5afbfbe46e7f7c4e1936e19d3e97be4b7937da7b6d114"
-"checksum nom-midi 0.3.0 (git+https://github.com/wfraser/nom-midi-rs)" = "<none>"
 "checksum pdf-canvas 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)" = "f64bff5af4962abe4d3e0df6dd5845d20ec438b0c754e54e9b46100fac960763"
 "checksum redox_syscall 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)" = "c214e91d3ecf43e9a4e41e578973adeb14b474f2bee858742d127af75a0112b1"
 "checksum time 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)" = "d825be0eb33fda1a7e68012d51e9c7f451dc1a69391e7fdc197060bb8c56667b"

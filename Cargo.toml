@@ -5,10 +5,4 @@ authors = ["Bill Fraser <wfraser@codewise.org>"]
 
 [dependencies]
 pdf-canvas = "0.5.4"
-#nom-midi = { version = "0.2.0", optional = true }
-#nom-midi = { git = "https://github.com/wfraser/nom-midi-rs", branch = "notes-octave-fix" }
-nom-midi = { git = "https://github.com/wfraser/nom-midi-rs", branch = "master", features = ["verbose-errors"], optional = true }
-ghakuf = { version = "*", optional = true }
-
-[features]
-default = ["ghakuf"]
+ghakuf = "0.5.1"
