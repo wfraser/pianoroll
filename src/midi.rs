@@ -84,6 +84,14 @@ pub fn note_durations<'a>(
 ) -> Vec<NoteWithDuration> {
     use std::collections::btree_map::*;
 
+    // If notes overlap by this many ticks or less, don't print an error.
+    // TODO: determine this number based on the time_base value or something.
+    const FUDGE_FACTOR_TICKS: u64 = 10;
+
+    // And then keep track of notes that we had multiple presses on, so that the release doesn't
+    // also cause an error to be printed.
+    let mut error_suppressed = BTreeMap::<MidiNote, usize>::new();
+
     #[derive(Debug)]
     struct InFlightInfo {
         midi_track: usize,
@@ -118,14 +126,27 @@ pub fn note_durations<'a>(
                 });
             }
             (NoteAction::On, Entry::Occupied(entry)) => {
-                let e = entry.get();
-                println!("ERROR: at {}, note {:?} on track {} channel {} already pressed at {} by {},{}",
-                    event.timestamp, note, event.track, event.channel,
-                    e.timestamp, e.midi_track, e.midi_channel);
+                let prev = entry.get();
+                if event.timestamp - prev.timestamp > FUDGE_FACTOR_TICKS {
+                    println!("ERROR: at {}, note {:?} on track {} channel {} already pressed at {} by {},{}",
+                        event.timestamp, note, event.track, event.channel,
+                        prev.timestamp, prev.midi_track, prev.midi_channel);
+                }
+                let suppress_count = error_suppressed.entry(event.note).or_insert(0);
+                *suppress_count += 1;
             }
             (NoteAction::Off, Entry::Vacant(_)) => {
-                println!("ERROR: at {} on track {} channel {}, note {:?} is not pressed yet",
-                    event.timestamp, event.track, event.channel, note);
+                match error_suppressed.get_mut(&event.note) {
+                    Some(ref mut suppress_count) if **suppress_count > 0 => {
+                        // Double-dereference is necessary to avoid a "moves value into pattern
+                        // guard" error.
+                        **suppress_count -= 1;
+                    }
+                    _ => {
+                        println!("ERROR: at {} on track {} channel {}, note {:?} is not pressed yet",
+                            event.timestamp, event.track, event.channel, note);
+                    }
+                }
             }
             (NoteAction::Off, Entry::Occupied(entry)) => {
                 let start_timestamp = entry.remove().timestamp;
