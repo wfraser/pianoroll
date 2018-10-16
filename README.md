@@ -7,11 +7,12 @@ Currently the software is able to take a MIDI file and generate a large
 single-page PDF of a piano roll for the song. How to actually turn this into a
 physical piece of paper with holes punched in it is still under investigation.
 
-[Sample Input](take5.mid)
+[Sample Input (MIDI)](take5.mid)
 
-[Sample Output](take5.pdf)
+[Sample Output (PDF)](take5.pdf)
+[(and converted to PNG because GitHub won't preview a PDF that large)](take5.png)
 
-[Simulated player piano playing the output](take5_pianoroll.mid)
+[Simulated player piano playing the output (MIDI)](take5_pianoroll.mid)
 
 ## Building
 
