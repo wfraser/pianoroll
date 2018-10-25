@@ -299,14 +299,14 @@ impl ChannelInfoHandler {
                 Some(bank) => bank,
                 None => {
                     println!("ERROR: track {} channel {} has no MIDI bank set", track, channel);
-                    return None;
+                    0 // use a default value
                 }
             };
             let program = match v.program {
                 Some(program) => program,
                 None => {
                     println!("ERROR: track {} channel {} has no MIDI program set", track, channel);
-                    return None;
+                    0 // use a default value
                 }
             };
             Some(ChannelInfo {
@@ -362,22 +362,13 @@ impl ghakuf::reader::Handler for ChannelInfoHandler {
     ) {
         match event {
             MidiEvent::ControlChange { ch, control, data } if *control == 0 => {
-                match self.channels.entry((self.track, *ch)) {
-                    Entry::Occupied(mut entry) => {
-                        let info = entry.get_mut();
-                        if info.bank.is_none() {
-                            info.bank = Some(*data);
-                        } else {
-                            println!("WARNING: track {} set to another bank ({}) mid-song",
-                                self.track, data);
-                        }
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(ChannelName {
-                            bank: Some(*data),
-                            program: None,
-                        });
-                    }
+                let entry = self.channels.entry((self.track, *ch))
+                    .or_insert(ChannelName { bank: None, program: None });
+                if entry.bank.is_none() {
+                    entry.bank = Some(*data);
+                } else {
+                    println!("WARNING: track {} set to another bank ({}) mid-song",
+                        self.track, data);
                 }
             }
             /*MidiEvent::ControlChange { control, .. } if *control == 32 => {
@@ -386,23 +377,19 @@ impl ghakuf::reader::Handler for ChannelInfoHandler {
                 println!("{:#?}", event);
             }*/
             MidiEvent::ProgramChange { ch, program } => {
-                match self.channels.entry((self.track, *ch)) {
-                    Entry::Occupied(mut entry) => {
-                        let info = entry.get_mut();
-                        if info.program.is_none() {
-                            info.program = Some(*program);
-                        } else {
-                            println!("WARNING: track {} set to another program ({}) mid-song",
-                                self.track, program);
-                        }
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(ChannelName {
-                            bank: None,
-                            program: Some(*program),
-                        });
-                    }
+                let entry = self.channels.entry((self.track, *ch))
+                    .or_insert(ChannelName { bank: None, program: None });
+                if entry.program.is_none() {
+                    entry.program = Some(*program);
+                } else {
+                    println!("WARNING: track {} set to another program ({}) mid-song",
+                        self.track, program);
                 }
+            }
+            MidiEvent::NoteOn { ch, .. } => {
+                let _entry = self.channels.entry((self.track, *ch))
+                    .or_insert(ChannelName { bank: None, program: None });
+                // do nothing with it; just make one if there wasn't one before.
             }
             _ => (),
         }
