@@ -85,6 +85,21 @@ impl MidiImpl {
                 data: Vec::new(),
             },
             Message::TrackChange,
+            Message::MidiEvent {
+                delta_time: 0,
+                event: MidiEvent::ControlChange {
+                    ch: 0,
+                    control: 0,
+                    data: 0,
+                }
+            },
+            Message::MidiEvent {
+                delta_time: 0,
+                event: MidiEvent::ProgramChange {
+                    ch: 0,
+                    program: 1,
+                },
+            },
         ];
 
         let mut note_events = vec![];
