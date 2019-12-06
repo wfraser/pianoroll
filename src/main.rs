@@ -1,14 +1,11 @@
-extern crate pdf_canvas;
-extern crate ghakuf;
-
 mod config;
-use config::{Configuration, parse_configuration};
+use crate::config::{Configuration, parse_configuration};
 
 mod midi;
-use midi::{note_durations, Midi, NoteAction, NoteWithDuration};
+use crate::midi::{note_durations, Midi, NoteAction, NoteWithDuration};
 
 mod midi_impl_ghakuf;
-mod midi_impl { pub use midi_impl_ghakuf::*; }
+mod midi_impl { pub use crate::midi_impl_ghakuf::*; }
 
 mod note;
 mod program;

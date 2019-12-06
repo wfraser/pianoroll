@@ -1,6 +1,6 @@
+use crate::midi::*;
+use crate::note::MidiNote;
 use ghakuf::{self, messages::{Message, MetaEvent, MidiEvent}};
-use midi::*;
-use note::MidiNote;
 use std::collections::btree_map::*;
 
 #[derive(Debug)]

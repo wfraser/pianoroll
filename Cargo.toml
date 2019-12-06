@@ -2,6 +2,7 @@
 name = "pianoroll"
 version = "0.1.0"
 authors = ["Bill Fraser <wfraser@codewise.org>"]
+edition = "2018"
 
 [dependencies]
 pdf-canvas = "0.5.4"

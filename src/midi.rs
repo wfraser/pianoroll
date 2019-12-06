@@ -1,5 +1,5 @@
-use midi_impl;
-use note::MidiNote;
+use crate::midi_impl;
+use crate::note::MidiNote;
 
 #[derive(Debug, Clone)]
 pub struct NoteEvent {
