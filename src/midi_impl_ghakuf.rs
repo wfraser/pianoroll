@@ -309,7 +309,7 @@ impl ChannelInfoHandler {
     }
 
     pub fn channel_info<'a>(&'a self) -> impl Iterator<Item = ChannelInfo> + 'a {
-        self.channels.iter().filter_map(move |((track, channel), v)| {
+        self.channels.iter().map(move |((track, channel), v)| {
             let bank = match v.bank {
                 Some(bank) => bank,
                 None => {
@@ -324,12 +324,12 @@ impl ChannelInfoHandler {
                     0 // use a default value
                 }
             };
-            Some(ChannelInfo {
+            ChannelInfo {
                 midi_track: *track,
                 midi_channel: *channel,
                 bank,
                 program,
-            })
+            }
         })
     }
 }

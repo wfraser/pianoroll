@@ -17,7 +17,7 @@ use std::collections::btree_map::*;
 
 fn usage() {
     eprintln!("usage: {} <input.mid> [track,channel[+/-offset]...] [/timediv] [-o output.pdf]",
-        std::env::args().nth(0).unwrap());
+        std::env::args().next().unwrap());
 }
 
 fn render(notes: &[NoteWithDuration], cfg: &Configuration) {
