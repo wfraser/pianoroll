@@ -5,5 +5,5 @@ authors = ["Bill Fraser <wfraser@codewise.org>"]
 edition = "2018"
 
 [dependencies]
-pdf-canvas = "0.5.4"
+pdf-canvas = "0.6"
 ghakuf = "0.5.1"

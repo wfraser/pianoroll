@@ -1,15 +1,15 @@
+/// Pianoroll :: Make player piano rolls from MIDI files
+/// https://github.com/wfraser/pianoroll
+
 mod config;
-use crate::config::{Configuration, parse_configuration};
-
 mod midi;
-use crate::midi::{note_durations, Midi, NoteAction, NoteWithDuration};
-
 mod midi_impl_ghakuf;
 mod midi_impl { pub use crate::midi_impl_ghakuf::*; }
-
 mod note;
 mod program;
 
+use crate::config::{Configuration, parse_configuration};
+use crate::midi::{note_durations, Midi, NoteAction, NoteWithDuration};
 use std::collections::btree_map::*;
 
 fn usage() {

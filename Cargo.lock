@@ -45,9 +45,9 @@ dependencies = [
 
 [[package]]
 name = "pdf-canvas"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64bff5af4962abe4d3e0df6dd5845d20ec438b0c754e54e9b46100fac960763"
+checksum = "9a9885dffef3197790f4975c5f6d2a915914eaab7dbc98b95f44025c11ba87e6"
 dependencies = [
  "lazy_static",
  "time",
