@@ -39,8 +39,8 @@ pub fn parse_configuration(args: impl Iterator<Item = OsString>) -> Result<Confi
         } else {
             let arg = arg.to_str().ok_or_else(|| format!("non-utf8 argument {:?}", arg))?;
             // channel selector or timediv
-            if arg.starts_with('/') {
-                time_divisor = Some(arg[1..].parse()
+            if let Some(num) = arg.strip_prefix('/') {
+                time_divisor = Some(num.parse()
                     .map_err(|e| format!("time divisor parse error: {}", e))?);
             } else {
                 let selector = parse_track_selector(arg)

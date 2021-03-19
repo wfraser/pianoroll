@@ -298,7 +298,7 @@ impl ChannelInfoHandler {
         }
     }
 
-    pub fn track_info<'a>(&'a self) -> impl Iterator<Item = TrackInfo> + 'a {
+    pub fn track_info(&self) -> impl Iterator<Item = TrackInfo> + '_ {
         self.tracks.iter().map(move |(track, v)| {
             TrackInfo {
                 midi_track: *track,
@@ -308,7 +308,7 @@ impl ChannelInfoHandler {
         })
     }
 
-    pub fn channel_info<'a>(&'a self) -> impl Iterator<Item = ChannelInfo> + 'a {
+    pub fn channel_info(&self) -> impl Iterator<Item = ChannelInfo> + '_ {
         self.channels.iter().map(move |((track, channel), v)| {
             let bank = match v.bank {
                 Some(bank) => bank,
