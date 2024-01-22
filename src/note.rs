@@ -169,7 +169,7 @@ impl MidiNote {
         let value = self.as_i8().checked_add(rhs)?;
         if value >= 0 {
             // Safe because bounds checked.
-            Some(unsafe { ::std::mem::transmute(value as i8) })
+            Some(unsafe { std::mem::transmute(value) })
         } else {
             None
         }

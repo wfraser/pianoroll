@@ -103,7 +103,7 @@ pub fn note_durations<'a>(
     let mut finished_notes: Vec<NoteWithDuration> = vec![];
     let mut in_flight = BTreeMap::<MidiNote, InFlightInfo>::new();
     for event in notes {
-        let offset = match filter(&event) {
+        let offset = match filter(event) {
             Some(offset) => offset,
             None => continue,
         };

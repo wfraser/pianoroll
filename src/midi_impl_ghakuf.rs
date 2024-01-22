@@ -152,7 +152,7 @@ impl MidiImpl {
         let mut writer = ghakuf::writer::Writer::new();
         writer.time_base(time_base);
         for message in &messages {
-            writer.push(&message);
+            writer.push(message);
         }
 
         writer.write(path)
